@@ -2,7 +2,13 @@ import { defineConfig } from "tsup";
 
 export default defineConfig([
   {
-    entry: ["src/index.ts"],
+    entry: [
+      "src/index.ts",
+      "src/react.tsx",
+      "src/vue.ts",
+      "src/nextjs.ts",
+      "src/svelte.ts",
+    ],
     format: ["esm", "cjs"],
     dts: true,
     sourcemap: true,
@@ -10,6 +16,7 @@ export default defineConfig([
     target: "es2022",
     outDir: "dist",
     treeshake: true,
+    external: ["react", "vue", "svelte", "svelte/store", "next", "next/server"],
   },
   {
     entry: { xray: "src/browser.ts" },

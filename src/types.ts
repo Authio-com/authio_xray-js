@@ -48,11 +48,13 @@ export type TrackInput = PageViewedInput | EmailClickedInput;
 
 export interface IdentifyAuthenticatedSessionInput {
   accessToken: string;
-  xrayVisitorProof: string;
 }
 
 export interface XRayConfig {
   collectorKey: string;
+  projectId: string;
+  proofSigningKey?: string;
+  proofTtlSeconds?: number;
   collectEndpoint?: string;
   identifyEndpoint?: string;
   beaconEndpoint?: string;
@@ -70,6 +72,7 @@ export interface XRayConfig {
 export interface XRayClient {
   setConsent(consent: ConsentUpdate): void;
   track(event: TrackInput): boolean;
+  mintVisitorProof(): Promise<string>;
   identifyAuthenticatedSession(
     input: IdentifyAuthenticatedSessionInput,
   ): Promise<boolean>;
