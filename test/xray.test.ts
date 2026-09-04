@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { XRayCollector } from "../src/client";
 
 const COLLECTOR_KEY = "xrk_test_1234567890123456";
+const PROJECT_ID = "proj_test_abc123";
 const CONSENT = {
   granted: true as const,
   receiptReference: "consent-receipt-1",
@@ -40,6 +41,7 @@ describe("XRayCollector", () => {
     const setItem = vi.spyOn(Storage.prototype, "setItem");
     const client = new XRayCollector({
       collectorKey: COLLECTOR_KEY,
+      projectId: PROJECT_ID,
       fetch: fetcher,
     });
 
@@ -59,6 +61,7 @@ describe("XRayCollector", () => {
     const fetcher = vi.fn().mockResolvedValue(response(202));
     const client = new XRayCollector({
       collectorKey: COLLECTOR_KEY,
+      projectId: PROJECT_ID,
       fetch: fetcher,
       initialConsent: CONSENT,
       flushIntervalMs: 60_000,
@@ -97,6 +100,7 @@ describe("XRayCollector", () => {
     const fetcher = vi.fn();
     const client = new XRayCollector({
       collectorKey: COLLECTOR_KEY,
+      projectId: PROJECT_ID,
       fetch: fetcher,
       initialConsent: CONSENT,
     });
@@ -116,6 +120,7 @@ describe("XRayCollector", () => {
   it("clears existing IDs when GPC is enabled before pagehide", () => {
     const client = new XRayCollector({
       collectorKey: COLLECTOR_KEY,
+      projectId: PROJECT_ID,
       fetch: vi.fn(),
       initialConsent: CONSENT,
     });
@@ -137,6 +142,7 @@ describe("XRayCollector", () => {
     const fetcher = vi.fn();
     const client = new XRayCollector({
       collectorKey: COLLECTOR_KEY,
+      projectId: PROJECT_ID,
       fetch: fetcher,
     });
 
@@ -167,6 +173,7 @@ describe("XRayCollector", () => {
     const fetcher = vi.fn().mockResolvedValue(response(204));
     const client = new XRayCollector({
       collectorKey: COLLECTOR_KEY,
+      projectId: PROJECT_ID,
       fetch: fetcher,
       initialConsent: CONSENT,
       includeTitle: true,
@@ -226,6 +233,7 @@ describe("XRayCollector", () => {
       () =>
         new XRayCollector({
           collectorKey: COLLECTOR_KEY,
+          projectId: PROJECT_ID,
           fetch: vi.fn(),
           identifyEndpoint: "https://evil.example/identify",
         }),
@@ -234,6 +242,7 @@ describe("XRayCollector", () => {
       () =>
         new XRayCollector({
           collectorKey: COLLECTOR_KEY,
+          projectId: PROJECT_ID,
           fetch: vi.fn(),
           beaconEndpoint: "https://evil.example/collect",
         }),
@@ -244,6 +253,7 @@ describe("XRayCollector", () => {
     const fetcher = vi.fn().mockResolvedValue(response(202));
     const client = new XRayCollector({
       collectorKey: COLLECTOR_KEY,
+      projectId: PROJECT_ID,
       fetch: fetcher,
       initialConsent: CONSENT,
       flushIntervalMs: 60_000,
@@ -266,6 +276,7 @@ describe("XRayCollector", () => {
     const fetcher = vi.fn().mockResolvedValue(response(202));
     const client = new XRayCollector({
       collectorKey: COLLECTOR_KEY,
+      projectId: PROJECT_ID,
       fetch: fetcher,
       initialConsent: CONSENT,
       batchSize: 100,
@@ -298,6 +309,7 @@ describe("XRayCollector", () => {
       .mockResolvedValue(response(202));
     const client = new XRayCollector({
       collectorKey: COLLECTOR_KEY,
+      projectId: PROJECT_ID,
       fetch: fetcher,
       initialConsent: CONSENT,
       batchSize: 1,
@@ -332,6 +344,7 @@ describe("XRayCollector", () => {
       .mockResolvedValueOnce(response(202));
     const client = new XRayCollector({
       collectorKey: COLLECTOR_KEY,
+      projectId: PROJECT_ID,
       fetch: fetcher,
       initialConsent: CONSENT,
       batchSize: 1,
@@ -349,28 +362,29 @@ describe("XRayCollector", () => {
     client.destroy();
   });
 
-  it("sends only the frozen identify request fields", async () => {
+  it("mints a visitor proof and sends it in the identify request", async () => {
     const fetcher = vi.fn().mockResolvedValue(response(202));
     const client = new XRayCollector({
       collectorKey: COLLECTOR_KEY,
+      projectId: PROJECT_ID,
       fetch: fetcher,
       initialConsent: CONSENT,
     });
-    const xrayVisitorProof = "proof_12345678901234567890123456789012";
+
 
     await expect(
       client.identifyAuthenticatedSession({
         accessToken: "access-token",
-        xrayVisitorProof,
+
       }),
     ).resolves.toBe(true);
     const [url, init] = fetcher.mock.calls[0] as [string, RequestInit];
     expect(url).toBe("https://api.authio.com/v1/identify");
     expect(init.keepalive).toBe(true);
-    expect(JSON.parse(String(init.body))).toEqual({
-      xray_visitor_proof: xrayVisitorProof,
-      consent_receipt_reference: "consent-receipt-1",
-    });
+    const body = JSON.parse(String(init.body)) as Record<string, unknown>;
+    expect(body.consent_receipt_reference).toBe("consent-receipt-1");
+    expect(body.xray_visitor_proof).toBeDefined();
+    expect(String(body.xray_visitor_proof)).toMatch(/^xvp_[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/);
     client.destroy();
   });
 });

@@ -1,4 +1,5 @@
 import { buildEmailPayload, buildPagePayload } from "./privacy";
+import { mintVisitorProof as mintProof } from "./proof";
 import type {
   ConsentGrant,
   ConsentPurpose,
@@ -273,6 +274,21 @@ export class XRayCollector implements XRayClient {
     return true;
   }
 
+  async mintVisitorProof(): Promise<string> {
+    if (this.destroyed || !this.consent) {
+      throw new Error("Cannot mint proof: client not ready");
+    }
+    const identifiers = this.ensureIdentifiers();
+    const signingKey =
+      this.config.proofSigningKey ?? this.config.collectorKey;
+    return mintProof({
+      visitorId: identifiers.visitorId,
+      projectId: this.config.projectId,
+      signingKey,
+      ttlSeconds: this.config.proofTtlSeconds,
+    });
+  }
+
   async identifyAuthenticatedSession(
     input: IdentifyAuthenticatedSessionInput,
   ): Promise<boolean> {
@@ -280,15 +296,23 @@ export class XRayCollector implements XRayClient {
       this.destroyed ||
       !this.consent ||
       isGlobalPrivacyControlEnabled() ||
-      input.xrayVisitorProof.length < 32 ||
-      input.xrayVisitorProof.length > 2_048 ||
+
       !input.accessToken
     ) {
       if (isGlobalPrivacyControlEnabled()) this.withdrawConsent(true);
       return false;
     }
 
-    const consentReceipt = this.consent.receipt_reference;
+    let xrayVisitorProof: string;
+    try {
+      xrayVisitorProof = await this.mintVisitorProof();
+    } catch {
+      return false;
+    }
+
+    const consentReceipt = this.consent?.receipt_reference;
+    if (!consentReceipt) return false;
+
     const controller = new AbortController();
     this.identifyControllers.add(controller);
     try {
@@ -299,7 +323,7 @@ export class XRayCollector implements XRayClient {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          xray_visitor_proof: input.xrayVisitorProof,
+          xray_visitor_proof: xrayVisitorProof,
           consent_receipt_reference: consentReceipt,
         }),
         keepalive: true,

@@ -23,6 +23,11 @@ export function track(event: TrackInput): boolean {
   return defaultClient?.track(event) ?? false;
 }
 
+export function mintVisitorProof(): Promise<string> {
+  if (!defaultClient) return Promise.reject(new Error("XRay not initialized"));
+  return defaultClient.mintVisitorProof();
+}
+
 export function identifyAuthenticatedSession(
   input: IdentifyAuthenticatedSessionInput,
 ): Promise<boolean> {
@@ -52,6 +57,12 @@ export type {
   TCFData,
   TCFConsentProviderOptions,
 } from "./consent";
+export {
+  mintVisitorProof as mintVisitorProofRaw,
+  parseVisitorProof,
+  verifyVisitorProof,
+} from "./proof";
+export type { MintVisitorProofOptions } from "./proof";
 export type {
   ClickIdType,
   ConsentDenial,
