@@ -48,7 +48,7 @@ export type TrackInput = PageViewedInput | EmailClickedInput;
 
 export interface IdentifyAuthenticatedSessionInput {
   accessToken: string;
-  visitorProof: string;
+  xrayVisitorProof: string;
 }
 
 export interface XRayConfig {
