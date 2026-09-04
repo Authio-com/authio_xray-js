@@ -280,8 +280,8 @@ export class XRayCollector implements XRayClient {
       this.destroyed ||
       !this.consent ||
       isGlobalPrivacyControlEnabled() ||
-      input.visitorProof.length < 32 ||
-      input.visitorProof.length > 2_048 ||
+      input.xrayVisitorProof.length < 32 ||
+      input.xrayVisitorProof.length > 2_048 ||
       !input.accessToken
     ) {
       if (isGlobalPrivacyControlEnabled()) this.withdrawConsent(true);
@@ -299,7 +299,7 @@ export class XRayCollector implements XRayClient {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          visitor_proof: input.visitorProof,
+          xray_visitor_proof: input.xrayVisitorProof,
           consent_receipt_reference: consentReceipt,
         }),
         keepalive: true,

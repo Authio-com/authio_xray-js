@@ -356,19 +356,19 @@ describe("XRayCollector", () => {
       fetch: fetcher,
       initialConsent: CONSENT,
     });
-    const visitorProof = "proof_12345678901234567890123456789012";
+    const xrayVisitorProof = "proof_12345678901234567890123456789012";
 
     await expect(
       client.identifyAuthenticatedSession({
         accessToken: "access-token",
-        visitorProof,
+        xrayVisitorProof,
       }),
     ).resolves.toBe(true);
     const [url, init] = fetcher.mock.calls[0] as [string, RequestInit];
     expect(url).toBe("https://api.authio.com/v1/identify");
     expect(init.keepalive).toBe(true);
     expect(JSON.parse(String(init.body))).toEqual({
-      visitor_proof: visitorProof,
+      xray_visitor_proof: xrayVisitorProof,
       consent_receipt_reference: "consent-receipt-1",
     });
     client.destroy();
