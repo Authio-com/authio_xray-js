@@ -24,15 +24,11 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - run: pnpm test
-      - name: Require npm publish credentials
+      - name: Register npm trusted publisher (first release)
+        continue-on-error: true
         run: |
-          if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
-            echo "::error::NPM_TOKEN secret is required for a release tag"
-            exit 1
-          fi
+          npm trust add github Authio-com/authio_xray-js publish.yml --package @useauthio/xray
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Publish to npm
         run: pnpm publish --provenance --access public --no-git-checks
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
