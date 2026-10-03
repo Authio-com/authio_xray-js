@@ -185,8 +185,12 @@ disclose queued telemetry.
 - Events have random `evt_`, project-scoped `xv_`, and session-scoped `xs_`
   IDs, plus `occurred_at`, `consent`, and a closed allowlisted `payload`.
 - Flush sends `{ "events": [...] }` with 1–20 events to `POST /v1/collect`.
-- The collector treats only empty `202 Accepted` and `204 No Content` as
-  success and never parses an inference response.
+- On `202 Accepted`, the collector stores the sealed `visitor_proof` from the
+  JSON body in session storage (scoped per collector key). `204 No Content`
+  means success with no new proof.
+- `identifyAuthenticatedSession` sends that stored proof when `visitorProof`
+  is omitted. `getVisitorProof()` exposes it for custom sign-in flows (for
+  example `@useauthio/nextjs` `xrayVisitorProof` resolvers).
 
 ## Reset
 

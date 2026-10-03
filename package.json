@@ -1,6 +1,6 @@
 {
   "name": "@useauthio/xray",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Consent-aware browser collector for Authio XRay account intent.",
   "author": "Authio",
   "license": "MIT",

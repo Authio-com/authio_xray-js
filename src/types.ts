@@ -48,7 +48,8 @@ export type TrackInput = PageViewedInput | EmailClickedInput;
 
 export interface IdentifyAuthenticatedSessionInput {
   accessToken: string;
-  visitorProof: string;
+  /** When omitted, the latest sealed proof from a successful collect flush is used. */
+  visitorProof?: string;
 }
 
 export interface XRayConfig {
@@ -70,6 +71,7 @@ export interface XRayConfig {
 export interface XRayClient {
   setConsent(consent: ConsentUpdate): void;
   track(event: TrackInput): boolean;
+  getVisitorProof(): string | null;
   identifyAuthenticatedSession(
     input: IdentifyAuthenticatedSessionInput,
   ): Promise<boolean>;
