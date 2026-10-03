@@ -107,6 +107,7 @@ export class XRayCollector implements XRayClient {
   private readonly namespace: string;
   private readonly visitorStorageKey: string;
   private readonly sessionStorageKey: string;
+  private readonly visitorProofStorageKey: string;
   private consent: XRayConsentContext | null = null;
   private identifiers: Identifiers | null = null;
   private identifiersInitialized = false;
@@ -175,6 +176,7 @@ export class XRayCollector implements XRayClient {
     this.namespace = projectNamespace(config.collectorKey);
     this.visitorStorageKey = `authio_xray_visitor_${this.namespace}`;
     this.sessionStorageKey = `authio_xray_session_${this.namespace}`;
+    this.visitorProofStorageKey = `authio_xray_visitor_proof_${this.namespace}`;
 
     try {
       if (config.consentProvider) {
@@ -273,15 +275,21 @@ export class XRayCollector implements XRayClient {
     return true;
   }
 
+  getVisitorProof(): string | null {
+    return this.readStoredVisitorProof();
+  }
+
   async identifyAuthenticatedSession(
     input: IdentifyAuthenticatedSessionInput,
   ): Promise<boolean> {
+    const visitorProof =
+      input.visitorProof?.trim() || this.readStoredVisitorProof() || "";
     if (
       this.destroyed ||
       !this.consent ||
       isGlobalPrivacyControlEnabled() ||
-      input.visitorProof.length < 32 ||
-      input.visitorProof.length > 2_048 ||
+      visitorProof.length < 32 ||
+      visitorProof.length > 2_048 ||
       !input.accessToken
     ) {
       if (isGlobalPrivacyControlEnabled()) this.withdrawConsent(true);
@@ -299,7 +307,7 @@ export class XRayCollector implements XRayClient {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          visitor_proof: input.visitorProof,
+          visitor_proof: visitorProof,
           consent_receipt_reference: consentReceipt,
         }),
         keepalive: true,
@@ -433,6 +441,7 @@ export class XRayCollector implements XRayClient {
 
   private clearIdentifiers(force = false): void {
     this.identifiers = null;
+    this.clearStoredVisitorProof();
     if (!this.identifiersInitialized && !force) return;
     try {
       globalThis.localStorage?.removeItem(this.visitorStorageKey);
@@ -445,6 +454,59 @@ export class XRayCollector implements XRayClient {
       // Storage can be unavailable in privacy modes.
     }
     this.identifiersInitialized = false;
+  }
+
+  private async captureVisitorProof(response: Response): Promise<void> {
+    const contentType = response.headers?.get("content-type") ?? "";
+    if (!contentType.includes("application/json")) return;
+    try {
+      const body = (await response.clone().json()) as {
+        visitor_proof?: unknown;
+      };
+      if (
+        typeof body.visitor_proof === "string" &&
+        body.visitor_proof.length >= 32 &&
+        body.visitor_proof.length <= 2_048
+      ) {
+        this.storeVisitorProof(body.visitor_proof);
+      }
+    } catch {
+      // Ignore malformed collector responses; the flush still succeeded.
+    }
+  }
+
+  private readStoredVisitorProof(): string | null {
+    try {
+      const value = globalThis.sessionStorage?.getItem(
+        this.visitorProofStorageKey,
+      );
+      if (
+        typeof value === "string" &&
+        value.length >= 32 &&
+        value.length <= 2_048
+      ) {
+        return value;
+      }
+    } catch {
+      // Storage can be unavailable in privacy modes.
+    }
+    return null;
+  }
+
+  private storeVisitorProof(proof: string): void {
+    try {
+      globalThis.sessionStorage?.setItem(this.visitorProofStorageKey, proof);
+    } catch {
+      // Storage can be unavailable in privacy modes.
+    }
+  }
+
+  private clearStoredVisitorProof(): void {
+    try {
+      globalThis.sessionStorage?.removeItem(this.visitorProofStorageKey);
+    } catch {
+      // Storage can be unavailable in privacy modes.
+    }
   }
 
   private async send(events: XRayCollectEvent[]): Promise<boolean> {
@@ -462,6 +524,9 @@ export class XRayCollector implements XRayClient {
         signal: controller.signal,
       });
       if (response.status === 202 || response.status === 204) {
+        if (response.status === 202) {
+          await this.captureVisitorProof(response);
+        }
         this.removeEvents(events);
         this.retryAttempt = 0;
         if (this.queue.length > 0) this.scheduleFlush(0);

@@ -23,6 +23,10 @@ export function track(event: TrackInput): boolean {
   return defaultClient?.track(event) ?? false;
 }
 
+export function getVisitorProof(): string | null {
+  return defaultClient?.getVisitorProof() ?? null;
+}
+
 export function identifyAuthenticatedSession(
   input: IdentifyAuthenticatedSessionInput,
 ): Promise<boolean> {

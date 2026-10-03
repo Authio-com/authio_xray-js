@@ -9,8 +9,18 @@ const CONSENT = {
   grantedAt: "2026-09-04T17:25:00.000Z",
 };
 
-function response(status: number): Response {
-  return { status } as Response;
+function response(status: number, body?: unknown): Response {
+  if (body === undefined) {
+    return { status } as Response;
+  }
+  return {
+    status,
+    headers: {
+      get: (name: string) => (name === "content-type" ? "application/json" : null),
+    },
+    clone: () => response(status, body),
+    json: async () => body,
+  } as Response;
 }
 
 function eventBody(fetcher: ReturnType<typeof vi.fn>, call = 0) {
@@ -346,6 +356,58 @@ describe("XRayCollector", () => {
     expect(fetcher).toHaveBeenCalledTimes(1);
     await vi.advanceTimersByTimeAsync(100);
     expect(fetcher).toHaveBeenCalledTimes(2);
+    client.destroy();
+  });
+
+  it("stores visitor_proof from a 202 collect response", async () => {
+    const proof =
+      "sealed_proof_1234567890123456789012345678901234567890";
+    const fetcher = vi.fn().mockResolvedValue(
+      response(202, { visitor_proof: proof }),
+    );
+    const client = new XRayCollector({
+      collectorKey: COLLECTOR_KEY,
+      fetch: fetcher,
+      initialConsent: CONSENT,
+      batchSize: 1,
+    });
+
+    client.track({
+      type: "page_viewed",
+      url: "https://example.com/pricing",
+    });
+    await client.flush();
+    expect(client.getVisitorProof()).toBe(proof);
+    client.destroy();
+  });
+
+  it("identify uses the stored visitor proof when omitted", async () => {
+    const proof =
+      "sealed_proof_1234567890123456789012345678901234567890";
+    const fetcher = vi
+      .fn()
+      .mockResolvedValueOnce(response(202, { visitor_proof: proof }))
+      .mockResolvedValueOnce(response(202));
+    const client = new XRayCollector({
+      collectorKey: COLLECTOR_KEY,
+      fetch: fetcher,
+      initialConsent: CONSENT,
+      batchSize: 1,
+    });
+
+    client.track({
+      type: "page_viewed",
+      url: "https://example.com/pricing",
+    });
+    await client.flush();
+    await expect(
+      client.identifyAuthenticatedSession({ accessToken: "access-token" }),
+    ).resolves.toBe(true);
+    const [, init] = fetcher.mock.calls[1] as [string, RequestInit];
+    expect(JSON.parse(String(init.body))).toEqual({
+      visitor_proof: proof,
+      consent_receipt_reference: "consent-receipt-1",
+    });
     client.destroy();
   });
 
