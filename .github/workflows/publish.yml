@@ -24,11 +24,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm build
       - run: pnpm test
-      - name: Register npm trusted publisher (first release)
-        continue-on-error: true
-        run: |
-          npm trust add github Authio-com/authio_xray-js publish.yml --package @useauthio/xray
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
       - name: Publish to npm
         run: pnpm publish --provenance --access public --no-git-checks
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
